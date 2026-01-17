@@ -1,3 +1,18 @@
+## 1.0.0 (2026-01-17)
+
+### ✨ New Features
+
+* feat: initial release of Tado Hijack
+
+- API quota monitoring via passive header interception
+- Home/Away presence control with debouncing
+- Per-zone auto mode switches
+- Battery health binary sensors
+- Dual-track polling (fast hourly, slow daily)
+- Monkey-patching for tadoasync null handling
+- OAuth device flow authentication
+- English and German translations
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
