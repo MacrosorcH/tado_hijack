@@ -1,0 +1,5 @@
+manual_poll:
+  description: "Force a refresh of data from Tado API."
+
+resume_all_schedules:
+  description: "Resume smart schedule for all heating zones."

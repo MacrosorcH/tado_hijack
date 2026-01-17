@@ -1,0 +1,8 @@
+# Core Dependencies
+tadoasync==0.2.2
+
+# CI/CD & Dev Tools
+ruff
+pre-commit
+black
+mypy

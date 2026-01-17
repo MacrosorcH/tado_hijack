@@ -1,0 +1,90 @@
+{
+  "config": {
+    "progress": {
+      "wait_for_device": "Um die Bridge zu autorisieren, besuche diese URL: {url}\nUnd gib diesen Code ein: {code}\nSobald dies erledigt ist, aktualisiert sich dieses Fenster automatisch."
+    },
+    "abort": {
+      "already_configured": "Konto ist bereits konfiguriert.",
+      "could_not_authenticate": "Authentifizierung bei Tado fehlgeschlagen.",
+      "no_homes": "Mit diesem Tado-Konto sind keine Häuser verknüpft.",
+      "cannot_connect": "Verbindung fehlgeschlagen.",
+      "reauth_successful": "Die Re-Authentifizierung war erfolgreich.",
+      "reconfigure_successful": "Die Neukonfiguration war erfolgreich.",
+      "reauth_account_mismatch": "Das verwendete Tado-Konto stimmt nicht mit der bestehenden Integration überein."
+    },
+    "step": {
+      "user": {
+        "title": "Tado Hijack verknüpfen"
+      },
+      "reauth_confirm": {
+        "title": "Tado Hijack neu authentifizieren",
+        "description": "Deine Tado-Sitzung ist abgelaufen oder der Token ist ungültig. Klicke auf ABSENDEN, um den Re-Authentifizierungsprozess zu starten."
+      },
+      "timeout": {
+        "title": "Zeitüberschreitung bei der Aktivierung",
+        "description": "Die Authentifizierung ist abgelaufen. Klicke auf ABSENDEN, um es erneut zu versuchen."
+      },
+      "config": {
+        "title": "Tado Hijack Konfiguration",
+        "description": "Wähle die Intervalle für die Datenaktualisierung.",
+        "data": {
+          "scan_interval": "Intervall für Schnelles Polling (Sekunden)",
+          "slow_poll_interval": "Intervall für Batterie-Update (Stunden)"
+        },
+        "data_description": {
+          "scan_interval": "Wie oft Anwesenheit und Heizstatus geprüft werden. Jede Abfrage verbraucht 2 API-Calls. 3600s (1h) wird empfohlen, um innerhalb des 100-Calls/Tag Limits zu bleiben (verbraucht 48 Calls) und Puffer für manuelle Aktionen zu lassen.",
+          "slow_poll_interval": "Wie oft Batterien und Gerätedaten geprüft werden. Dies verbraucht 1 zusätzlichen API-Call. 24h wird dringend empfohlen, um die API-Last zu minimieren."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zu Tado fehlgeschlagen.",
+      "invalid_auth": "Ungültige Authentifizierung.",
+      "activation_failed": "Authentifizierung fehlgeschlagen. Bitte versuche es erneut.",
+      "unknown": "Ein unbekannter Fehler ist aufgetreten."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tado Hijack Optionen",
+        "data": {
+          "scan_interval": "Aktualisierungsintervall (Sekunden)",
+          "slow_poll_interval": "Intervall für Batterie-Update (Stunden)"
+        },
+        "data_description": {
+          "scan_interval": "Intervall für Anwesenheit und Heizstatus. Kleinere Werte erhöhen die API-Last.",
+          "slow_poll_interval": "Intervall für Batterien und Metadaten. 24h ist meist völlig ausreichend."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "api_limit": {
+        "name": "API Tageslimit"
+      },
+      "api_remaining": {
+        "name": "Verbleibende API-Aufrufe"
+      }
+    },
+    "switch": {
+      "away_mode": {
+        "name": "Away Modus"
+      },
+      "auto_mode": {
+        "name": "Zeitplan fortsetzen"
+      }
+    }
+  },
+  "services": {
+    "manual_poll": {
+      "name": "Manueller Abruf",
+      "description": "Erzwingt eine sofortige Aktualisierung der Daten von der Tado API."
+    },
+    "resume_all_schedules": {
+      "name": "Zeitpläne fortsetzen",
+      "description": "Entfernt alle manuellen Änderungen in allen Zonen und kehrt zum Smart Schedule zurück."
+    }
+  }
+}
