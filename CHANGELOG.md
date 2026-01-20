@@ -1,3 +1,23 @@
+## [2.0.0](https://github.com/banter240/tado_hijack/compare/v1.1.0...v2.0.0) (2026-01-20)
+
+### ⚠ BREAKING CHANGES
+
+* **core:** Complete architecture overhaul. Entities have been renamed and regrouped. Config flow and polling logic updated.
+
+### ✨ New Features
+
+* feat(core): architecture overhaul - smart batching, inheritance, homekit linking & controls
+
+- Architecture: Migrated from monkey-patching to a clean inheritance model (TadoHijackClient).
+- Device Mapping: Entities (Battery, Offset, Child Lock) are now mapped to physical devices (Valves) instead of Zones.
+- HomeKit Linking: Automatically detects and links entities to existing HomeKit devices via Serial Number match.
+- Smart Batching: Advanced TadoApiManager with CommandMerger logic merges multiple rapid commands into single Bulk API calls.
+- Controls: Added Child Lock (Switch), Boost All Zones (Button), Turn Off All Zones (Button).
+- Security: Implemented centralized, strict PII redaction (TadoRedactionFilter) for logs (strings & objects).
+- Performance: Decoupled RateLimitManager, reduced default polling to 30m, and added configurable debounce (default 5s).
+- Logic: Centralized OptimisticManager, TadoRequestHandler, AuthManager, and CommandMerger for robust and modular API handling.
+- Documentation: Complete README overhaul with better structure and detailed API consumption table.
+
 ## [1.1.0](https://github.com/banter240/tado_hijack/compare/v1.0.0...v1.1.0) (2026-01-17)
 
 ### ✨ New Features
