@@ -301,7 +301,7 @@ The `OptimisticManager` uses **context-aware state clearing**:
 
 **Purpose:** Prevent duplicate API calls for the same logical operation.
 
-When a user rapidly toggles a switch or drags a slider, Home Assistant fires multiple state change events. Without tracking, each event would queue a separate API call, wasting quota and potentially creating conflicts.
+When a user rapidly toggles a switch or clicks UI buttons (+/-), Home Assistant fires multiple state change events. Without tracking, each event would queue a separate API call, wasting quota and potentially creating conflicts.
 
 #### Debounce Window + Command Deduplication
 
@@ -321,13 +321,13 @@ self.api_manager.queue_command(
 
 **Example:**
 ```text
-T0: User drags temp slider: 18°C → queue_command("zone_1", temp=18)
-T1: Still dragging: 19°C → REPLACE previous command
-T2: Still dragging: 20°C → REPLACE again
-T3: User releases slider: 21°C → REPLACE final
+T0: User clicks temp button: 18.5°C → queue_command("zone_1", temp=18.5)
+T1: User clicks temp button: 19.0°C → REPLACE temp=18.5 with 19.0
+T2: User clicks temp button: 20.0°C → REPLACE temp=19.0 with 20.0
+T3: Final button click: 21.0°C → REPLACE final value in queue (21.0)
 T4: Debounce expires (5s) → Send ONLY the final command (21°C)
 
-Result: 20 UI events → 1 API call ✅
+Result: 4 UI events → 1 API call ✅
 ```
 
 ### 4. Rollback Context (Error Recovery)

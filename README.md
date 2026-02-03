@@ -32,19 +32,6 @@ While other integrations **die** when Tado slashes API limits, Tado Hijack **jus
 
 <br>
 
-> [!CAUTION]
-> **Breaking Change (Migration v6):**
-> All polling intervals have been reset to their default values. This migration was necessary because the configuration schema switched from **hours to seconds** to allow for much higher precision and consistency across all features. Please review your settings in the integration options.
-
-<br>
-
-> [!WARNING]
-> **Compatibility Note (Tado X / Matter):**
-> This integration is currently optimized for **Tado V3+** (IB01) systems.
-> **Tado X** devices use the new Matter architecture and a different API which is **not yet supported**. Support is planned for a future release; current focus is on perfecting the V3+ and HomeKit experience.
-
-<br>
-
 > [!NOTE]
 > **High API Usage is Expected (And Good!):**
 > **You might see 2,000-4,000 API calls per day.** This is **completely normal** and exactly how Auto Quota is designed to work!
@@ -56,6 +43,19 @@ While other integrations **die** when Tado slashes API limits, Tado Hijack **jus
 > - **When Tado cuts you to 100 calls/day**, Auto Quota **automatically slows down** to ~15 minutes per update. Your smart home keeps running — just slower.
 >
 > **TL;DR:** High usage now = fast updates. Low quota later = automatic slowdown. **This is the whole point of Auto Quota.** Don't panic — enjoy the speed while it lasts! 🚀
+
+<br>
+
+> [!CAUTION]
+> **Breaking Change (Migration v6):**
+> All polling intervals have been reset to their default values. This migration was necessary because the configuration schema switched from **hours to seconds** to allow for much higher precision and consistency across all features. Please review your settings in the integration options.
+
+<br>
+
+> [!WARNING]
+> **Compatibility Note (Tado X / Matter):**
+> This integration is currently optimized for **Tado V3+** (IB01) systems.
+> **Tado X** devices use the new Matter architecture and a different API which is **not yet supported**. Support is planned for a future release; current focus is on perfecting the V3+ and HomeKit experience.
 
 <br>
 
@@ -247,7 +247,7 @@ Tado Hijack implements enterprise-grade state management to ensure your settings
 
 - **💾 State Memory:** AC fan speed, swing positions, and target temperatures survive Home Assistant restarts. No more "reset to default" frustration.
 - **🔒 Field Locking:** Prevents concurrent API calls from overwriting each other. Change fan speed, then swing, then temperature in rapid succession — all settings are preserved.
-- **🎯 Pending Command Tracking:** Drag a temperature slider? 20 UI events collapse into **1 API call** with the final value. Zero waste, zero duplicates.
+- **🎯 Pending Command Tracking:** Rapidly clicking temperature buttons (+/-) or dragging a slider? Multiple UI events collapse into **1 API call** with the final value. Zero waste, zero duplicates.
 - **⏮️ Rollback on Error:** If an API call fails (e.g., invalid payload), the UI automatically reverts to the previous state with a clear error message. No "ghost states" where the UI lies about what's active.
 - **🧵 Thread-Safe Queue:** All write operations pass through a single serialized queue. Automations, dashboard changes, and service calls never conflict or race.
 
@@ -420,8 +420,8 @@ Not all API calls are created equal. Tado Hijack optimizes everything, but physi
 > _Example: Turning off 10 rooms at once = **1 API Call**._
 >
 > **Debounced (Rapid Update Protection):**
-> Prevents spamming the API while dragging sliders. Only the final value is sent.
-> _Example: Dragging a slider from 18°C to 22°C generates 20 intermediate events, but only **1 API Call** is sent._
+> Prevents spamming the API during rapid interactions (like clicking buttons or dragging sliders). Only the final value is sent.
+> _Example: Rapidly clicking a temperature button or dragging a slider from 18°C to 22°C generates multiple events, but only **1 API Call** is sent._
 
 <br>
 
