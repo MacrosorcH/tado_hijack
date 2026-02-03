@@ -1,3 +1,72 @@
+## [4.2.0](https://github.com/banter240/tado_hijack/compare/v4.1.0...v4.2.0) (2026-02-03)
+
+### ✨ New Features
+
+* feat(core): Centralized entity architecture, advanced schedule metrics, and stabilized auto-quota management
+
+This release introduces a major architectural leap, centralizing entity logic into a declarative system, enhancing schedule transparency through advanced metrics, and stabilizing the API quota management for both standard and proxy configurations.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏗️ CENTRALIZED ENTITY ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Unified Entity Definitions:
+- Introduced `definitions.py` to centralize all entity metadata (sensors, binary_sensors, numbers, switches, select, buttons).
+- Modular Setup Logic: New `entity_setup.py` handles platform-agnostic entity creation, significantly reducing code duplication across platform files.
+- Declarative Mapping: Entities are now registered based on dynamic capability detection, ensuring a cleaner and more reliable integration footprint.
+- Scoped Entity Factories: Dedicated helpers for Home, Zone, Device, and Bridge scopes (`create_home_sensor`, `create_zone_binary_sensor`, etc.).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ ADVANCED SCHEDULE METRICS & SENSOR INTELLIGENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Schedule Transparency:
+- Next Schedule Change Monitoring: New sensors for tracking the timestamp, temperature, and mode of the next planned schedule event.
+- Next Time Block Start: Diagnostic sensors for upcoming time block transitions.
+- HVAC Action Precision: Improved parsing logic for heating power and AC activity states.
+
+Enhanced Connectivity Monitoring:
+- Bridge Connection Sensors: Detailed cloud connection status for Internet Bridges with compact unique IDs.
+- Zone-Level Connectivity: Aggregated connectivity status for TRVs and thermostats within a zone.
+- Battery State Tracking: Native binary sensors for device-level battery health monitoring.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛡️ STABILIZED AUTO-QUOTA & POLLING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Intelligent Interval Management:
+- Configurable Minimum Floor: Introduced `min_interval_configured` to allow users to tune the floor of the adaptive polling system.
+- Mode-Specific Minimums: Enforced safe floors (120s for Proxy, 20s for Standard) to prevent accidental API bans while maintaining maximum responsiveness.
+- Budget-Aware Scaling: Polling intervals now proactively check budget availability for the minimum floor before attempting to scale up frequency.
+- Interval Forensics: New sensors for `current_zone_interval`, `min_interval_configured`, and `min_interval_enforced` providing real-time visibility into the quota engine.
+
+Refined Proxy Support:
+- Proxy Url & Token Diagnostics: Enhanced visibility into proxy configuration with redacted token logging for security.
+- Jitter Control: Dynamic jitter application when operating behind an API proxy to further reduce pattern-based detection.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐛 CRITICAL FIXES & HARDENING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Open Window Detection:
+- Timeout Preservation: Fixed a regression where the OWD timeout was not correctly preserved or restored during configuration changes.
+- Preserved state in seconds for higher accuracy during property updates.
+
+Overlay & AC Hardening:
+- Centralized Payload Construction: Consolidated all overlay logic into `build_overlay_data`, ensuring consistent validation and OpenTherm awareness.
+- AC Setting Stability: Refined handling of AC-specific fields (swing, fan speed) to prevent invalid payloads on partial updates.
+- Robust Error Handling: Enhanced redacted logging for API interaction forensics.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 TECHNICAL IMPROVEMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Coordinator Decomposition: Refactored `coordinator.py` to leverage declarative definitions and centralized builders.
+- Helper Consolidation: Cleaned up logic in `helpers/` directory for better maintainability.
+- Translation Expansion: Added comprehensive German and English translation strings for all new diagnostic entities.
+- Redacted Logging: Upgraded logging utils to ensure sensitive proxy tokens and API payloads are never leaked in plain text.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 ## [4.1.0](https://github.com/banter240/tado_hijack/compare/v4.0.1...v4.1.0) (2026-01-31)
 
 ### ✨ New Features
