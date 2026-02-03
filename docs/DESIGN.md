@@ -116,17 +116,17 @@ The integration uses a **Weighted Predictive Model** to distribute calls intelli
                                        │
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ (1) DEDUCT FIXED RESERVES                                                   │
+│ (1) DEDUCT PRO-RATED RESERVES & BUFFER                                      │
 │ ┌───────────────────────────┐   ┌───────────────────────────┐               │
-│ │   Background Syncs (24h)  │   │   External User Excess    │               │
-│ │ (Hardware, Metadata, Bat) │ + │(Official App, Automations)│               │
+│ │   Background Syncs (Left) │   │   Protection Buffer       │               │
+│ │ (Hardware, Metadata, Bat) │ + │   (Throttle Threshold)    │               │
 │ └───────────────────────────┘   └───────────────────────────┘               │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ (2) CALCULATE FREE BUDGET                                                   │
-│ FREE_BUDGET = (Limit - Reserves) * auto_api_quota_percent (e.g. 80%)        │
+│ (2) CALCULATE REMAINING BUDGET                                              │
+│ FREE_BUDGET = (Remaining - Reserves - Buffer) * auto_quota_% (e.g. 80%)     │
 └──────┬───────────────────────────────────────────────────────────────┬──────┘
        │                                                               │
        ▼ (Day Phase: PERFORMANCE)                                      ▼ (Night: ECONOMY)
@@ -141,7 +141,7 @@ The integration uses a **Weighted Predictive Model** to distribute calls intelli
 │             │                        │               │                      │
 │             ▼                        │               ▼                      │
 │  FINAL ADAPTIVE INTERVAL             │        REDUCED POLLING INTERVAL      │
-│  (Target: ~45s - 300s)               │        (Target: ~1h or Paused)       │
+│  (Target: ~20s - 300s)               │        (Target: ~1h or Paused)       │
 └──────────────────────────────────────┘               └──────────────────────┘
                                        │
                                        ▼
@@ -161,7 +161,7 @@ The integration uses a **Weighted Predictive Model** to distribute calls intelli
 
 To protect your Tado account from automated detection and "Account Locks", the integration enforces hard-coded minimum intervals:
 
-- **🛡️ Standard Cloud:** Minimum **45 seconds** per update.
+- **🛡️ Standard Cloud:** Minimum **20 seconds** per update.
 - **🛡️ API Proxy:** Minimum **120 seconds** per update (Conservative floor required for stable proxy operation).
 - **🛡️ Safety Throttle:** If the Tado API reports an invalid limit (e.g., `<= 0` during outages), the integration automatically enforces a **5-minute (300s)** safety interval to prevent rapid retry loops.
 - **🛡️ Persistent Reconnect:** When the API quota is exhausted (throttled), the system performs a recovery check every **15 minutes** (THROTTLE_RECOVERY_INTERVAL_S) to ensure immediate service resumption once the quota is available.
@@ -548,7 +548,7 @@ Tado is actively choking the official API to a near-useless level. Tado Hijack i
                 │                                          │
                 ▼                                          ▼
       [ ADAPTIVE SURVIVAL ]                       [ TOTAL FREEDOM ]
- High speed today (45s floor).             High-speed polling (120s floor).
+ High speed today (20s floor).             High-speed polling (120s floor).
  Adaptive slowdown once limited.           Full bandwidth (Jitter enabled).
 ```
 
@@ -559,7 +559,7 @@ Tado is actively choking the official API to a near-useless level. Tado Hijack i
 3.  **Local Cache Layer:** Frequently requested data can be served directly from the proxy's local memory, saving precious API calls for critical commands.
 4.  **Multi-Account Scaling:** Power users can orchestrate multiple accounts to pool their quota, effectively providing unlimited bandwidth for complex smart home setups.
 5.  **Ban Protection & Obfuscation:** The proxy allows for advanced **Multi-Level Jitter**, breaking the temporal correlation between Home Assistant actions and Tado cloud logs.
-6.  **Safety First Performance:** While Cloud mode allows 45s updates (technical floor), Proxy mode enforces a conservative **120s minimum interval** combined with jitter to keep your account safe from automated detection during high-frequency polling.
+6.  **Safety First Performance:** While Cloud mode allows 20s updates (technical floor), Proxy mode enforces a conservative **120s minimum interval** combined with jitter to keep your account safe from automated detection during high-frequency polling.
 
 ---
 

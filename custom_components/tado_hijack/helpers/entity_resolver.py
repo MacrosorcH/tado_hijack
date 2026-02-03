@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.helpers import entity_registry as er
 
 from ..const import DOMAIN
+from .logging_utils import get_redacted_logger
 
 if TYPE_CHECKING:
     from ..coordinator import TadoDataUpdateCoordinator
 
-_LOGGER = logging.getLogger(__name__)
+
+_LOGGER = get_redacted_logger(__name__)
 
 
 class EntityResolver:

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
+
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.helpers.entity import EntityCategory
 
 if TYPE_CHECKING:
     from tadoasync.models import (
@@ -68,3 +72,53 @@ class TadoCommand:
     zone_id: int | None = None
     data: dict[str, Any] | None = None
     rollback_context: Any = None
+
+
+class TadoEntityDefinition(TypedDict, total=False):
+    """Define properties for a Tado entity."""
+
+    key: str
+    translation_key: str | None
+    unique_id_suffix: str | None
+    use_legacy_unique_id_format: bool | None
+    platform: str  # "sensor", "binary_sensor", etc.
+    scope: str  # "home", "zone", "device", "hot_water", "bridge"
+
+    # Function to extract value.
+    # Signature depends on scope:
+    # - home: (coordinator) -> value
+    # - zone: (coordinator, zone_id) -> value
+    # - device: (coordinator, device_serial) -> value
+    # - bridge: (coordinator, bridge_serial) -> value
+    value_fn: Callable[..., Any]
+    is_supported_fn: Callable[..., bool] | None
+    press_fn: Callable[..., Any] | None
+    set_fn: Callable[..., Any] | None
+    turn_on_fn: Callable[..., Any] | None
+    turn_off_fn: Callable[..., Any] | None
+
+    # Select Entity Specifics
+    options_fn: Callable[..., list[str]] | None
+    select_option_fn: Callable[..., Any] | None
+
+    # Standard HA Entity Properties
+    icon: str | None
+    ha_device_class: SensorDeviceClass | None
+    ha_state_class: SensorStateClass | None
+    ha_native_unit_of_measurement: str | None
+    entity_category: EntityCategory | None
+    entity_registry_enabled_default: bool | None
+    supported_zone_types: set[str] | None
+    required_device_capabilities: list[str] | None
+    is_inverted: bool | None
+
+    # Number Entity Specifics
+    min_value: float | None
+    max_value: float | None
+    step: float | None
+    min_fn: Callable[..., float] | None
+    max_fn: Callable[..., float] | None
+    step_fn: Callable[..., float] | None
+    optimistic_key: str | None
+    optimistic_scope: str | None
+    optimistic_value_map: dict[str, bool] | None

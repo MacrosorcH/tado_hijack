@@ -361,7 +361,14 @@ class TadoApiManager:
 
             await self._maybe_apply_call_jitter()
             try:
-                await api_call(zone_id, value)
+                if action_name == "open window" and isinstance(value, dict):
+                    await api_call(
+                        zone_id,
+                        enabled=value["enabled"],
+                        timeout_seconds=value.get("timeout_seconds"),
+                    )
+                else:
+                    await api_call(zone_id, value)
             except Exception as e:
                 _LOGGER.error(
                     "Failed to set %s for zone %d: %s (type: %s). Value: %s",
@@ -374,21 +381,34 @@ class TadoApiManager:
                 rollback_fn(zone_id)
 
                 if zone_id in rollback_data:
-                    old_val = rollback_data[zone_id]
-
-                    if action_name == "away temp":
-                        self.coordinator.data_manager.away_cache[zone_id] = old_val
-                    elif action_name == "open window":
-                        if zone := self.coordinator.zones_meta.get(zone_id):
-                            if zone.open_window_detection:
-                                zone.open_window_detection.enabled = old_val
-                    elif attr := attr_map.get(action_name):
-                        if zone := self.coordinator.zones_meta.get(zone_id):
-                            setattr(zone, attr, old_val)
-
-                    _LOGGER.info("Rolled back %s for zone %d", action_name, zone_id)
+                    self._rollback_zone_property(
+                        zone_id, action_name, rollback_data[zone_id], attr_map
+                    )
 
                 self.coordinator.async_update_listeners()
+
+    def _rollback_zone_property(
+        self,
+        zone_id: int,
+        action_name: str,
+        old_val: Any,
+        attr_map: dict[str, str | None],
+    ) -> None:
+        """Handle individual zone property rollback."""
+        if action_name == "away temp":
+            self.coordinator.data_manager.away_cache[zone_id] = old_val
+        elif action_name == "open window":
+            if zone := self.coordinator.zones_meta.get(zone_id):
+                if zone.open_window_detection and isinstance(old_val, tuple):
+                    zone.open_window_detection.enabled = old_val[0]
+                    zone.open_window_detection.timeout_in_seconds = old_val[1]
+                elif zone.open_window_detection:
+                    zone.open_window_detection.enabled = old_val
+        elif attr := attr_map.get(action_name):
+            if zone := self.coordinator.zones_meta.get(zone_id):
+                setattr(zone, attr, old_val)
+
+        _LOGGER.info("Rolled back %s for zone %d", action_name, zone_id)
 
     async def _execute_identify_actions(self, actions: set[str]) -> None:
         """Execute identify."""

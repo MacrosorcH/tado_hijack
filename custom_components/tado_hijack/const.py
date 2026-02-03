@@ -17,9 +17,10 @@ CONF_SLOW_POLL_INTERVAL: Final = "slow_poll_interval"
 CONF_OFFSET_POLL_INTERVAL: Final = "offset_poll_interval"
 CONF_THROTTLE_THRESHOLD: Final = "throttle_threshold"
 CONF_DISABLE_POLLING_WHEN_THROTTLED: Final = "disable_polling_when_throttled"
+CONF_LOG_LEVEL: Final = "log_level"
 CONF_DEBOUNCE_TIME: Final = "debounce_time"
 CONF_API_PROXY_URL: Final = "api_proxy_url"
-CONF_DEBUG_LOGGING: Final = "debug_logging"
+CONF_PROXY_TOKEN: Final = "proxy_token"
 CONF_AUTO_API_QUOTA_PERCENT: Final = "auto_api_quota_percent"
 CONF_REFRESH_AFTER_RESUME: Final = "refresh_after_resume"
 CONF_REDUCED_POLLING_ACTIVE: Final = "reduced_polling_active"
@@ -28,6 +29,12 @@ CONF_REDUCED_POLLING_END: Final = "reduced_polling_end"
 CONF_REDUCED_POLLING_INTERVAL: Final = "reduced_polling_interval"
 CONF_CALL_JITTER_ENABLED: Final = "call_jitter_enabled"
 CONF_JITTER_PERCENT: Final = "jitter_percent"
+CONF_MIN_AUTO_QUOTA_INTERVAL_S: Final = "min_auto_quota_interval_s"
+CONF_INITIAL_POLL_DONE: Final = "initial_poll_done"
+
+# Logging Levels
+LOG_LEVELS: Final[list[str]] = ["DEBUG", "INFO", "WARNING", "ERROR"]
+DEFAULT_LOG_LEVEL: Final = "INFO"
 
 # [DUMMY_HOOK]
 # Enable dummy zones for development/testing via environment variable
@@ -50,6 +57,7 @@ DEFAULT_REDUCED_POLLING_END: Final = "07:00"
 DEFAULT_REDUCED_POLLING_INTERVAL: Final = 3600  # 1 hour
 DEFAULT_JITTER_ENABLED: Final = False
 DEFAULT_JITTER_PERCENT: Final = 10.0  # 10% variation (+/- 10%)
+DEFAULT_MIN_AUTO_QUOTA_INTERVAL_S: Final = 20  # Default minimum interval for auto quota
 
 # Minimums (0 = no periodic poll / disabled)
 MIN_SCAN_INTERVAL: Final = 0
@@ -57,8 +65,9 @@ MIN_PRESENCE_POLL_INTERVAL: Final = 0
 MIN_SLOW_POLL_INTERVAL: Final = 0
 MIN_OFFSET_POLL_INTERVAL: Final = 0
 MIN_DEBOUNCE_TIME: Final = 1  # Second
-MIN_AUTO_QUOTA_INTERVAL_S: Final = 45  # Safety floor for dynamic polling
+MIN_AUTO_QUOTA_INTERVAL_S: Final = 20  # Safety floor for dynamic polling (standard)
 MIN_PROXY_INTERVAL_S: Final = 120  # Minimum for proxy usage
+MAX_AUTO_QUOTA_INTERVAL_S: Final = 43200  # Maximum 12 hours (in seconds)
 MIN_REDUCED_POLLING_INTERVAL: Final = 0  # 0 = complete pause during timeframe
 MAX_API_QUOTA: Final = 5000  # Default Tado daily limit
 
@@ -139,6 +148,7 @@ TEMP_OFFSET_ATTR: Final = "temperatureOffset"
 
 # Device Type Mapping
 DEVICE_TYPE_MAP: Final[dict[str, str]] = {
+    "VA01": "Smart Radiator Thermostat",
     "VA02": "Smart Radiator Thermostat",
     "RU01": "Smart Thermostat",
     "RU02": "Smart Thermostat",

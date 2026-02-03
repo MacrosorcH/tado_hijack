@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.climate import (
@@ -15,10 +14,14 @@ from homeassistant.const import (
 )
 from homeassistant.core import CALLBACK_TYPE, Event, callback
 
+
+from .logging_utils import get_redacted_logger
+
 if TYPE_CHECKING:
     from ..coordinator import TadoDataUpdateCoordinator
 
-_LOGGER = logging.getLogger(__name__)
+
+_LOGGER = get_redacted_logger(__name__)
 
 
 class TadoEventHandler:

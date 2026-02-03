@@ -41,6 +41,7 @@ class TadoRequestHandler:
         data: dict[str, object] | None = None,
         method: HttpMethod = HttpMethod.GET,
         proxy_url: str | None = None,
+        proxy_token: str | None = None,
     ) -> str:
         """Execute a robust request mimicking browser behavior.
 
@@ -61,7 +62,7 @@ class TadoRequestHandler:
                     "_refresh_auth not found in Tado instance (library may have changed)"
                 )
 
-        url = self._build_url(uri, endpoint, proxy_url)
+        url = self._build_url(uri, endpoint, proxy_url, proxy_token)
 
         # Get access token only if NOT using proxy (proxy handles auth internally)
         access_token: str | None = None
@@ -135,7 +136,11 @@ class TadoRequestHandler:
             raise
 
     def _build_url(
-        self, uri: str | None, endpoint: str, proxy_url: str | None = None
+        self,
+        uri: str | None,
+        endpoint: str,
+        proxy_url: str | None = None,
+        proxy_token: str | None = None,
     ) -> URL:
         """Construct URL handling query parameters manually to avoid encoding issues."""
         if proxy_url:
@@ -145,10 +150,12 @@ class TadoRequestHandler:
             # If user already included the API path, use it as-is
             if parsed_proxy.path and parsed_proxy.path.startswith("/api"):
                 url = parsed_proxy
-            elif endpoint == EIQ_HOST_URL:
-                url = parsed_proxy.with_path(EIQ_API_PATH)
             else:
-                url = parsed_proxy.with_path(TADO_API_PATH)
+                base_path = f"/{proxy_token.strip('/')}" if proxy_token else ""
+                if endpoint == EIQ_HOST_URL:
+                    url = parsed_proxy.with_path(f"{base_path}{EIQ_API_PATH}")
+                else:
+                    url = parsed_proxy.with_path(f"{base_path}{TADO_API_PATH}")
 
         elif endpoint == EIQ_HOST_URL:
             url = URL.build(scheme="https", host=EIQ_HOST_URL, path=EIQ_API_PATH)

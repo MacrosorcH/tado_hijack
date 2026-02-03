@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import copy
-import logging
 from typing import Any
 
 from tadoasync.models import Overlay, Temperature, Termination, ZoneState
 
-_LOGGER = logging.getLogger(__name__)
+from .logging_utils import get_redacted_logger
+
+_LOGGER = get_redacted_logger(__name__)
 
 
 def patch_zone_overlay(

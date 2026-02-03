@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 
 from .const import DUMMY_ZONE_ID_AC, DUMMY_ZONE_ID_HOT_WATER
+from ..helpers.logging_utils import get_redacted_logger
 
 if TYPE_CHECKING:
     from ..coordinator import TadoDataUpdateCoordinator
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_redacted_logger(__name__)
 
 
 class TadoDummyHandler:
@@ -43,6 +43,7 @@ class TadoDummyHandler:
             connection_state=SimpleNamespace(
                 value=True, timestamp="2026-01-30T17:00:00Z"
             ),
+            next_schedule_change=None,
             link=SimpleNamespace(
                 state=f"/api/v2/homes/DUMMY/zones/{DUMMY_ZONE_ID_HOT_WATER}/state"
             ),
@@ -72,6 +73,7 @@ class TadoDummyHandler:
             connection_state=SimpleNamespace(
                 value=True, timestamp="2026-01-30T17:00:00Z"
             ),
+            next_schedule_change=None,
             link=SimpleNamespace(
                 state=f"/api/v2/homes/DUMMY/zones/{DUMMY_ZONE_ID_AC}/state"
             ),

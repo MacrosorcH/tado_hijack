@@ -52,6 +52,7 @@ def build_overlay_data(
     overlay_mode: str | None = None,
     ac_mode: str | None = None,
     supports_temp: bool = True,
+    additional_setting_fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the overlay data dictionary for Tado API.
 
@@ -65,6 +66,7 @@ def build_overlay_data(
         overlay_mode: Overlay mode (manual/next_block/presence)
         ac_mode: AC mode for AIR_CONDITIONING zones (optional)
         supports_temp: Whether zone supports temperature (for HOT_WATER OpenTherm detection)
+        additional_setting_fields: Extra fields to merge into setting dict (for AC-specific properties)
 
     """
     if not overlay_type:
@@ -99,6 +101,10 @@ def build_overlay_data(
     ):
         capped_temp = get_capped_temperature(zone_id, temperature, zones_meta)
         setting["temperature"] = {"celsius": capped_temp}
+
+    # Merge additional AC-specific fields (fanSpeed, swing, etc.)
+    if additional_setting_fields:
+        setting |= additional_setting_fields
 
     payload = {"setting": setting, "termination": termination}
 

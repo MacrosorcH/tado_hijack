@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -26,11 +25,12 @@ from .const import (
     SERVICE_TURN_OFF_ALL_ZONES,
     ZONE_TYPE_HOT_WATER,
 )
+from .helpers.logging_utils import get_redacted_logger
 
 if TYPE_CHECKING:
     from .coordinator import TadoDataUpdateCoordinator
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_redacted_logger(__name__)
 
 
 def _parse_and_get_overlay_mode(

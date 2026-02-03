@@ -75,21 +75,18 @@ def calculate_remaining_polling_budget(
     seconds_until_reset: int,
 ) -> float:
     """Calculate the remaining API budget for the rest of the day."""
-    progress_done = (SECONDS_PER_DAY - seconds_until_reset) / SECONDS_PER_DAY
+    if remaining <= 0:
+        return 0.0
+
     progress_remaining = seconds_until_reset / SECONDS_PER_DAY
 
-    # Calculate user activity vs threshold
-    expected_background_so_far = background_cost_24h * progress_done
-    actual_used_total = max(0, limit - remaining)
-    user_calls_so_far = max(0, actual_used_total - expected_background_so_far)
+    reserved_background = background_cost_24h * progress_remaining
+    potentially_free = remaining - reserved_background - throttle_threshold
 
-    # Everything used beyond the threshold is "excess" and reduces our daily pool
-    user_excess = max(0, user_calls_so_far - throttle_threshold)
+    if potentially_free <= 0:
+        return 0.0
 
-    # Calculate final available budget for the remaining day
-    available_for_day = max(0, limit - background_cost_24h - user_excess)
-    total_auto_quota_budget = available_for_day * auto_quota_percent / 100.0
-    return max(0.0, total_auto_quota_budget * progress_remaining)
+    return potentially_free * (auto_quota_percent / 100.0)
 
 
 def calculate_weighted_interval(

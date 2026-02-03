@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, cast
 
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -9,12 +10,84 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
-from .const import DEVICE_TYPE_MAP, DOMAIN
+from .const import DEVICE_TYPE_MAP, DOMAIN, ZONE_TYPE_HOT_WATER
 from .helpers.device_linker import get_homekit_identifiers
+from .models import TadoEntityDefinition
 
 if TYPE_CHECKING:
     from typing import Any
     from .coordinator import TadoDataUpdateCoordinator
+
+
+class TadoDefinitionMixin:
+    """Mixin for entities based on TadoEntityDefinition."""
+
+    def __init__(self, definition: TadoEntityDefinition) -> None:
+        """Initialize the definition mixin."""
+        self._definition = definition
+
+        # Apply standard properties from definition
+        if icon := definition.get("icon"):
+            self._attr_icon = icon
+        if device_class := definition.get("ha_device_class"):
+            self._attr_device_class = device_class
+        if state_class := definition.get("ha_state_class"):
+            self._attr_state_class = state_class
+        if unit := definition.get("ha_native_unit_of_measurement"):
+            self._attr_native_unit_of_measurement = unit
+        if category := definition.get("entity_category"):
+            self._attr_entity_category = category
+        if (enabled := definition.get("entity_registry_enabled_default")) is not None:
+            self._attr_entity_registry_enabled_default = enabled
+
+    def _get_unique_id_suffix(self) -> str:
+        """Return the unique ID suffix (legacy compatibility)."""
+        return self._definition.get("unique_id_suffix") or self._definition["key"]
+
+
+class TadoGenericEntityMixin(TadoDefinitionMixin):
+    """Mixin for generic entity logic (Value, Press)."""
+
+    coordinator: TadoDataUpdateCoordinator
+    _tado_entity_id: Any
+
+    def _get_actual_value(self) -> Any:
+        """Get actual value via value_fn."""
+        args: list[Any] = [self.coordinator]
+        if (ctx_id := self._tado_entity_id) is not None:
+            args.append(ctx_id)
+
+        return self._definition["value_fn"](*args)
+
+    async def _async_press(self) -> None:
+        """Handle button press via press_fn."""
+        if press_fn := self._definition.get("press_fn"):
+            args: list[Any] = [self.coordinator]
+            if (ctx_id := self._tado_entity_id) is not None:
+                args.append(ctx_id)
+
+            result = press_fn(*args)
+            if asyncio.iscoroutine(result):
+                await result
+
+    async def _async_select_option(self, option: str) -> None:
+        """Handle select option via select_option_fn."""
+        if select_fn := self._definition.get("select_option_fn"):
+            args: list[Any] = [self.coordinator]
+            if (ctx_id := self._tado_entity_id) is not None:
+                args.append(ctx_id)
+            args.append(option)
+            await select_fn(*args)
+
+    @property
+    def native_value(self) -> Any:
+        """Return the value for sensors/numbers."""
+        return self._get_actual_value()
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if sensor/switch is on."""
+        return bool(self._get_actual_value())
 
 
 class TadoOptimisticMixin:
@@ -115,15 +188,6 @@ class TadoEntity(CoordinatorEntity):
         super().__init__(coordinator)
         self._attr_translation_key = translation_key
 
-    @property
-    def tado_coordinator(self) -> TadoDataUpdateCoordinator:
-        """Return the coordinator."""
-        return cast("TadoDataUpdateCoordinator", self.coordinator)
-
-
-class TadoHomeEntity(TadoEntity):
-    """Entity belonging to the Tado Home device."""
-
     def _set_entity_id(self, domain: str, key: str, prefix: str = "tado") -> None:
         """Set entity_id before registration. Call in subclass __init__."""
         title = (
@@ -134,7 +198,60 @@ class TadoHomeEntity(TadoEntity):
         if title.startswith("Tado "):
             title = title[5:]
         home_slug = slugify(title)
-        self.entity_id = f"{domain}.{prefix}_{home_slug}_{key}"
+
+        # For zone/device entities, add the context ID to the slug
+        suffix = f"_{key}"
+        if hasattr(self, "_zone_id"):
+            suffix = f"_{self._zone_id}_{key}"
+        elif hasattr(self, "_serial_no"):
+            suffix = f"_{self._serial_no}_{key}"
+
+        self.entity_id = f"{domain}.{prefix}_{home_slug}{suffix}"
+
+    @property
+    def tado_coordinator(self) -> TadoDataUpdateCoordinator:
+        """Return the coordinator."""
+        return cast("TadoDataUpdateCoordinator", self.coordinator)
+
+    @property
+    def unique_id(self) -> str | None:
+        """Return a unique ID for the entity."""
+        if self.coordinator.config_entry is None:
+            return None
+
+        # Only use dynamic unique_id for generic entities with a definition
+        if not hasattr(self, "_definition"):
+            return cast(str | None, self._attr_unique_id)
+
+        suffix = self._get_unique_id_suffix()
+        scope = self._definition.get("scope")
+
+        # Handle Legacy Formats (No Config Entry ID prefix)
+        if self._definition.get("use_legacy_unique_id_format"):
+            if scope == "zone":
+                return f"zone_{self._zone_id}_{suffix}"
+            if scope == "device":
+                return f"{self._serial_no}_{suffix}"
+            if scope == "bridge":
+                return f"bridge_{self._serial_no}_{suffix}"
+
+        # Default Modern Format: {ENTRY_ID}_{SUFFIX}[_{CONTEXT_ID}]
+        uid = f"{self.coordinator.config_entry.entry_id}_{suffix}"
+        if scope == "zone":
+            uid += f"_{self._zone_id}"
+        elif scope in ("device", "bridge"):
+            uid += f"_{self._serial_no}"
+
+        return uid
+
+    @property
+    def _tado_entity_id(self) -> Any:
+        """Return the Tado context ID (Zone ID, Serial, or None)."""
+        return None
+
+
+class TadoHomeEntity(TadoEntity):
+    """Entity belonging to the Tado Home device."""
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -172,6 +289,25 @@ class TadoHomeEntity(TadoEntity):
         )
 
 
+class TadoBridgeEntity(TadoHomeEntity):
+    """Entity belonging to a Tado Internet Bridge."""
+
+    def __init__(
+        self,
+        coordinator: TadoDataUpdateCoordinator,
+        translation_key: str | None,
+        serial_no: str,
+    ) -> None:
+        """Initialize Tado bridge entity."""
+        super().__init__(coordinator, translation_key)
+        self._serial_no = serial_no
+
+    @property
+    def _tado_entity_id(self) -> str:
+        """Return the bridge serial number."""
+        return self._serial_no
+
+
 class TadoZoneEntity(TadoEntity):
     """Entity belonging to a specific Tado Zone device."""
 
@@ -192,13 +328,26 @@ class TadoZoneEntity(TadoEntity):
         """Return device info for the zone."""
         if self.coordinator.config_entry is None:
             raise RuntimeError("Config entry not available")
+
+        zone = self.tado_coordinator.zones_meta.get(self._zone_id)
+        model = (
+            "Hot Water Zone"
+            if zone and zone.type == ZONE_TYPE_HOT_WATER
+            else "Heating Zone"
+        )
+
         return DeviceInfo(
             identifiers={(DOMAIN, f"zone_{self._zone_id}")},
             name=self._zone_name,
             manufacturer="Tado",
-            model="Heating Zone",
+            model=model,
             via_device=(DOMAIN, self.coordinator.config_entry.entry_id),
         )
+
+    @property
+    def _tado_entity_id(self) -> int:
+        """Return the zone ID."""
+        return self._zone_id
 
 
 class TadoHotWaterZoneEntity(TadoEntity):
@@ -272,3 +421,8 @@ class TadoDeviceEntity(TadoEntity):
             sw_version=self._fw_version,
             serial_number=self._serial_no,
         )
+
+    @property
+    def _tado_entity_id(self) -> str:
+        """Return the device serial number."""
+        return self._serial_no

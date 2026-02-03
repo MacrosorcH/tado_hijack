@@ -22,7 +22,7 @@ class CommandMerger:
         self.away_temps: dict[int, float] = {}
         self.dazzle_modes: dict[int, bool] = {}
         self.early_starts: dict[int, bool] = {}
-        self.open_windows: dict[int, bool] = {}
+        self.open_windows: dict[int, Any] = {}
         self.identifies: set[str] = set()
         self.presence: str | None = None
         self.old_presence: str | None = None
@@ -107,7 +107,8 @@ class CommandMerger:
     def _merge_open_window(self, cmd: TadoCommand) -> None:
         if cmd.data and "zone_id" in cmd.data and "enabled" in cmd.data:
             zid = int(cmd.data["zone_id"])
-            self.open_windows[zid] = bool(cmd.data["enabled"])
+            # Store the full data packet to preserve timeout_seconds
+            self.open_windows[zid] = cmd.data
             if (
                 cmd.rollback_context is not None
                 and zid not in self.rollback_open_windows

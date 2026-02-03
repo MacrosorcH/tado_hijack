@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Mapping
 from typing import Any, TYPE_CHECKING
 
@@ -21,17 +20,22 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TimeSelector,
 )
 
 from .const import (
     CONF_API_PROXY_URL,
+    CONF_PROXY_TOKEN,
     CONF_AUTO_API_QUOTA_PERCENT,
     CONF_CALL_JITTER_ENABLED,
-    CONF_DEBUG_LOGGING,
+    CONF_LOG_LEVEL,
     CONF_DEBOUNCE_TIME,
     CONF_DISABLE_POLLING_WHEN_THROTTLED,
     CONF_JITTER_PERCENT,
+    CONF_MIN_AUTO_QUOTA_INTERVAL_S,
     CONF_OFFSET_POLL_INTERVAL,
     CONF_PRESENCE_POLL_INTERVAL,
     CONF_REDUCED_POLLING_ACTIVE,
@@ -45,6 +49,8 @@ from .const import (
     DEFAULT_AUTO_API_QUOTA_PERCENT,
     DEFAULT_DEBOUNCE_TIME,
     DEFAULT_JITTER_PERCENT,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_MIN_AUTO_QUOTA_INTERVAL_S,
     DEFAULT_OFFSET_POLL_INTERVAL,
     DEFAULT_REDUCED_POLLING_END,
     DEFAULT_REDUCED_POLLING_INTERVAL,
@@ -55,17 +61,21 @@ from .const import (
     DEFAULT_SLOW_POLL_INTERVAL,
     DEFAULT_THROTTLE_THRESHOLD,
     DOMAIN,
+    LOG_LEVELS,
     MAX_API_QUOTA,
+    MAX_AUTO_QUOTA_INTERVAL_S,
+    MIN_AUTO_QUOTA_INTERVAL_S,
     MIN_DEBOUNCE_TIME,
     MIN_OFFSET_POLL_INTERVAL,
     MIN_SCAN_INTERVAL,
     MIN_SLOW_POLL_INTERVAL,
 )
+from .helpers.logging_utils import get_redacted_logger
 from .helpers.patch import apply_patch
 
 apply_patch()
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_redacted_logger(__name__)
 
 
 class TadoHijackCommonFlow:
@@ -96,6 +106,67 @@ class TadoHijackCommonFlow:
         if hasattr(self, "config_entry") and self.config_entry:
             return self.config_entry.data.get(key, default)
         return default
+
+    def _get_advanced_schema(self) -> vol.Schema:
+        """Get the schema for the advanced/debug step."""
+        return vol.Schema(
+            {
+                vol.Optional(
+                    CONF_API_PROXY_URL,
+                    description={
+                        "suggested_value": self._get_current_data(
+                            CONF_API_PROXY_URL, ""
+                        )
+                    },
+                ): vol.Any(None, str),
+                vol.Optional(
+                    CONF_PROXY_TOKEN,
+                    description={
+                        "suggested_value": self._get_current_data(CONF_PROXY_TOKEN, "")
+                    },
+                ): vol.Any(None, str),
+                vol.Optional(
+                    CONF_CALL_JITTER_ENABLED,
+                    default=self._get_current_data(CONF_CALL_JITTER_ENABLED, False),
+                ): bool,
+                vol.Optional(
+                    CONF_JITTER_PERCENT,
+                    default=self._get_current_data(
+                        CONF_JITTER_PERCENT, DEFAULT_JITTER_PERCENT
+                    ),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX
+                    )
+                ),
+                vol.Optional(
+                    CONF_DEBOUNCE_TIME,
+                    default=self._get_current_data(
+                        CONF_DEBOUNCE_TIME, DEFAULT_DEBOUNCE_TIME
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=MIN_DEBOUNCE_TIME)),
+                vol.Optional(
+                    CONF_MIN_AUTO_QUOTA_INTERVAL_S,
+                    default=self._get_current_data(
+                        CONF_MIN_AUTO_QUOTA_INTERVAL_S,
+                        DEFAULT_MIN_AUTO_QUOTA_INTERVAL_S,
+                    ),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(
+                        min=MIN_AUTO_QUOTA_INTERVAL_S, max=MAX_AUTO_QUOTA_INTERVAL_S
+                    ),
+                ),
+                vol.Required(
+                    CONF_LOG_LEVEL,
+                    default=self._get_current_data(CONF_LOG_LEVEL, DEFAULT_LOG_LEVEL),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=LOG_LEVELS, mode=SelectSelectorMode.DROPDOWN
+                    )
+                ),
+            }
+        )
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -244,57 +315,25 @@ class TadoHijackCommonFlow:
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle Wizard Page 4: Advanced & Debug."""
-        if user_input is not None:
-            proxy_url = user_input.get(CONF_API_PROXY_URL, "")
-            if not proxy_url or not str(proxy_url).strip():
-                user_input[CONF_API_PROXY_URL] = None
+        if user_input is None:
+            return self.async_show_form(
+                step_id="advanced",
+                description_placeholders={
+                    "proxy_repo_url": "https://github.com/s1adem4n/tado-api-proxy",
+                    "docs_url": "https://github.com/banter240/tado_hijack?tab=readme-ov-file#unleashed-features-non-homekit",
+                },
+                data_schema=self._get_advanced_schema(),
+            )
+        proxy_url = user_input.get(CONF_API_PROXY_URL, "")
+        if not proxy_url or not str(proxy_url).strip():
+            user_input[CONF_API_PROXY_URL] = None
 
-            self._data.update(user_input)
-            return await self._async_finish_flow()
+        proxy_token = user_input.get(CONF_PROXY_TOKEN, "")
+        if not proxy_token or not str(proxy_token).strip():
+            user_input[CONF_PROXY_TOKEN] = None
 
-        return self.async_show_form(
-            step_id="advanced",
-            description_placeholders={
-                "proxy_repo_url": "https://github.com/s1adem4n/tado-api-proxy",
-                "docs_url": "https://github.com/banter240/tado_hijack?tab=readme-ov-file#unleashed-features-non-homekit",
-            },
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_API_PROXY_URL,
-                        description={
-                            "suggested_value": self._get_current_data(
-                                CONF_API_PROXY_URL, ""
-                            )
-                        },
-                    ): vol.Any(None, str),
-                    vol.Optional(
-                        CONF_CALL_JITTER_ENABLED,
-                        default=self._get_current_data(CONF_CALL_JITTER_ENABLED, False),
-                    ): bool,
-                    vol.Optional(
-                        CONF_JITTER_PERCENT,
-                        default=self._get_current_data(
-                            CONF_JITTER_PERCENT, DEFAULT_JITTER_PERCENT
-                        ),
-                    ): NumberSelector(
-                        NumberSelectorConfig(
-                            min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_DEBOUNCE_TIME,
-                        default=self._get_current_data(
-                            CONF_DEBOUNCE_TIME, DEFAULT_DEBOUNCE_TIME
-                        ),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=MIN_DEBOUNCE_TIME)),
-                    vol.Optional(
-                        CONF_DEBUG_LOGGING,
-                        default=self._get_current_data(CONF_DEBUG_LOGGING, False),
-                    ): bool,
-                }
-            ),
-        )
+        self._data.update(user_input)
+        return await self._async_finish_flow()
 
     async def _async_finish_flow(self) -> ConfigFlowResult:
         """Finalize the flow."""
@@ -306,7 +345,7 @@ class TadoHijackConfigFlow(
 ):  # type: ignore[call-arg]
     """Handle a config flow for Tado Hijack."""
 
-    VERSION = 6
+    VERSION = 7
     login_task: asyncio.Task | None = None
     refresh_token: str | None = None
     tado: Tado | None = None
@@ -326,6 +365,10 @@ class TadoHijackConfigFlow(
         api_proxy_url = self._data.get(CONF_API_PROXY_URL)
         if not api_proxy_url:
             self._data[CONF_API_PROXY_URL] = None
+
+        api_proxy_token = self._data.get(CONF_PROXY_TOKEN)
+        if not api_proxy_token:
+            self._data[CONF_PROXY_TOKEN] = None
 
         if api_proxy_url:
             _LOGGER.info("Proxy detected, skipping Tado Cloud Auth")
@@ -470,6 +513,12 @@ class TadoHijackOptionsFlowHandler(TadoHijackCommonFlow, config_entries.OptionsF
             or not str(new_data.get(CONF_API_PROXY_URL, "")).strip()
         ):
             new_data[CONF_API_PROXY_URL] = None
+
+        if (
+            not new_data.get(CONF_PROXY_TOKEN)
+            or not str(new_data.get(CONF_PROXY_TOKEN, "")).strip()
+        ):
+            new_data[CONF_PROXY_TOKEN] = None
 
         self.hass.config_entries.async_update_entry(
             self.config_entry,

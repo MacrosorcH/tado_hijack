@@ -3,36 +3,27 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from homeassistant.components.number import (
     NumberEntity,
-    NumberEntityDescription,
     NumberMode,
 )
-from homeassistant.const import UnitOfTemperature
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import (
-    CAPABILITY_INSIDE_TEMP,
-    TEMP_MAX_AC,
-    TEMP_MAX_HOT_WATER_OVERRIDE,
-    TEMP_MIN_AC,
-    TEMP_MIN_HOT_WATER,
-    ZONE_TYPE_AIR_CONDITIONING,
-    ZONE_TYPE_HEATING,
-)
 from .entity import (
+    TadoDefinitionMixin,
     TadoDeviceEntity,
     TadoOptimisticMixin,
     TadoZoneEntity,
 )
-from .helpers.discovery import yield_devices, yield_zones
+from .helpers.entity_setup import async_setup_generic_platform
+from .models import TadoEntityDefinition
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
     from .coordinator import TadoDataUpdateCoordinator
 
 
@@ -42,33 +33,16 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Tado number platform."""
-    coordinator: TadoDataUpdateCoordinator = entry.runtime_data
-    entities: list[NumberEntity] = [
-        TadoNumberEntity(
-            coordinator,
-            device.serial_no,
-            device.short_serial_no,
-            device.device_type,
-            zone_id,
-            device.current_fw_version,
-        )
-        for device, zone_id in yield_devices(
-            coordinator, {ZONE_TYPE_HEATING}, CAPABILITY_INSIDE_TEMP
-        )
-    ]
-    # Zone Level Numbers
-    for zone in yield_zones(
-        coordinator, {ZONE_TYPE_HEATING, ZONE_TYPE_AIR_CONDITIONING}
-    ):
-        if zone.type == ZONE_TYPE_AIR_CONDITIONING:
-            entities.append(
-                TadoTargetTempNumberEntity(coordinator, zone.id, zone.name, zone.type)
-            )
-        elif zone.type == ZONE_TYPE_HEATING:
-            entities.append(TadoAwayTempNumberEntity(coordinator, zone.id, zone.name))
-
-    if entities:
-        async_add_entities(entities)
+    await async_setup_generic_platform(
+        hass,
+        entry,
+        async_add_entities,
+        "number",
+        {
+            "device": TadoGenericDeviceNumber,
+            "zone": TadoGenericZoneNumber,
+        },
+    )
 
 
 class TadoOptimisticNumber(TadoOptimisticMixin, RestoreEntity, NumberEntity):
@@ -96,168 +70,113 @@ class TadoOptimisticNumber(TadoOptimisticMixin, RestoreEntity, NumberEntity):
         raise NotImplementedError
 
 
-class TadoNumberEntity(TadoDeviceEntity, TadoOptimisticNumber):
-    """Representation of a Tado temperature offset number."""
+class TadoGenericNumberMixin(TadoDefinitionMixin):
+    """Mixin for generic number logic."""
 
-    _attr_has_entity_name = True
-    _attr_translation_key = "temperature_offset"
-    _attr_native_min_value = -10.0
-    _attr_native_max_value = 10.0
-    _attr_native_step = 0.1
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_mode = NumberMode.BOX
-    _attr_optimistic_key = "offset"
-    _attr_optimistic_scope = "device"
+    coordinator: TadoDataUpdateCoordinator
+    _tado_entity_id: Any
 
-    def __init__(
-        self,
-        coordinator: TadoDataUpdateCoordinator,
-        serial_no: str,
-        short_serial: str,
-        device_type: str,
-        zone_id: int,
-        fw_version: str | None = None,
-    ) -> None:
-        """Initialize the number entity."""
-        super().__init__(
-            coordinator,
-            "temperature_offset",
-            serial_no,
-            short_serial,
-            device_type,
-            zone_id,
-            fw_version,
-        )
-        self.entity_description = NumberEntityDescription(
-            key="temperature_offset",
-            translation_key="temperature_offset",
-            native_min_value=-10.0,
-            native_max_value=10.0,
-            native_step=0.1,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            mode=NumberMode.BOX,
-        )
-        self._attr_unique_id = f"{serial_no}_temperature_offset"
+    def __init__(self, definition: TadoEntityDefinition) -> None:
+        """Initialize generic number properties."""
+        TadoDefinitionMixin.__init__(self, definition)
+        self._attr_mode = NumberMode.BOX
+        self._attr_optimistic_key = definition.get("optimistic_key")
+        self._attr_optimistic_scope = definition.get("optimistic_scope")
+
+        if min_val := definition.get("min_value"):
+            self._attr_native_min_value = min_val
+        if max_val := definition.get("max_value"):
+            self._attr_native_max_value = max_val
+        if step := definition.get("step"):
+            self._attr_native_step = step
+
+    def _update_dynamic_ranges(self) -> None:
+        """Update min/max/step if dynamic functions are provided."""
+        ctx_id = self._tado_entity_id
+        if min_fn := self._definition.get("min_fn"):
+            self._attr_native_min_value = min_fn(self.coordinator, ctx_id)
+        if max_fn := self._definition.get("max_fn"):
+            self._attr_native_max_value = max_fn(self.coordinator, ctx_id)
+        if step_fn := self._definition.get("step_fn"):
+            self._attr_native_step = step_fn(self.coordinator, ctx_id)
 
     def _get_actual_value(self) -> float | None:
-        offset = self.coordinator.data.offsets.get(self._serial_no)
-        return float(offset.celsius) if offset is not None else None
+        """Get actual value via value_fn."""
+        args = [self.coordinator]
+        if (ctx_id := self._tado_entity_id) is not None:
+            args.append(ctx_id)
 
-    async def async_set_native_value(self, value: float) -> None:
-        """Set a new temperature offset."""
-        await self.coordinator.async_set_temperature_offset(self._serial_no, value)
-
-
-class TadoAwayTempNumberEntity(TadoZoneEntity, TadoOptimisticNumber):
-    """Representation of a Tado Away Temperature number."""
-
-    _attr_has_entity_name = True
-    _attr_translation_key = "away_temperature"
-    _attr_native_min_value = 5.0
-    _attr_native_max_value = 25.0
-    _attr_native_step = 0.1
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_mode = NumberMode.BOX
-    _attr_optimistic_key = "away_temp"
-    _attr_optimistic_scope = "zone"
-
-    def __init__(
-        self,
-        coordinator: TadoDataUpdateCoordinator,
-        zone_id: int,
-        zone_name: str,
-    ) -> None:
-        """Initialize the number entity."""
-        super().__init__(coordinator, "away_temperature", zone_id, zone_name)
-        self.entity_description = NumberEntityDescription(
-            key="away_temperature",
-            translation_key="away_temperature",
-            native_min_value=5.0,
-            native_max_value=25.0,
-            native_step=0.1,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-            mode=NumberMode.BOX,
-        )
-        self._attr_unique_id = f"zone_{zone_id}_away_temperature"
-
-    def _get_actual_value(self) -> float | None:
-        val = self.coordinator.data.away_config.get(self._zone_id)
+        val = self._definition["value_fn"](*args)
         return float(val) if val is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set a new away temperature."""
-        await self.coordinator.async_set_away_temperature(self._zone_id, value)
+        """Set native value via set_fn."""
+        if set_fn := self._definition.get("set_fn"):
+            args: list[Any] = [self.coordinator]
+            if (ctx_id := self._tado_entity_id) is not None:
+                args.append(ctx_id)
+            args.append(value)
+            await set_fn(*args)
 
 
-class TadoTargetTempNumberEntity(TadoZoneEntity, TadoOptimisticNumber):
-    """Representation of a Tado Target Temperature number (AC/HW)."""
-
-    _attr_has_entity_name = True
-    _attr_native_step = 0.5
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_mode = NumberMode.BOX
-    _attr_optimistic_key = "temperature"
-    _attr_optimistic_scope = "zone"
+class TadoGenericDeviceNumber(
+    TadoDeviceEntity, TadoGenericNumberMixin, TadoOptimisticNumber
+):
+    """Generic number for Device scope."""
 
     def __init__(
         self,
         coordinator: TadoDataUpdateCoordinator,
+        definition: TadoEntityDefinition,
+        device: Any,
+        zone_id: int,
+    ) -> None:
+        """Initialize the generic device number."""
+        TadoDeviceEntity.__init__(
+            self,
+            coordinator,
+            cast(str, definition["translation_key"]),
+            device.serial_no,
+            device.short_serial_no,
+            device.device_type,
+            zone_id,
+            device.current_fw_version,
+        )
+        TadoGenericNumberMixin.__init__(self, definition)
+        self._update_dynamic_ranges()
+
+
+class TadoGenericZoneNumber(
+    TadoZoneEntity, TadoGenericNumberMixin, TadoOptimisticNumber
+):
+    """Generic number for Zone scope."""
+
+    def __init__(
+        self,
+        coordinator: TadoDataUpdateCoordinator,
+        definition: TadoEntityDefinition,
         zone_id: int,
         zone_name: str,
-        zone_type: str,
     ) -> None:
-        """Initialize the target temperature entity."""
-        key = "target_temperature"
-        super().__init__(coordinator, key, zone_id, zone_name)
-        self._zone_type = zone_type
-
-        self._attr_native_min_value = (
-            TEMP_MIN_HOT_WATER if zone_type == "HOT_WATER" else TEMP_MIN_AC
+        """Initialize the generic zone number."""
+        TadoZoneEntity.__init__(
+            self,
+            coordinator,
+            cast(str, definition["translation_key"]),
+            zone_id,
+            zone_name,
         )
-        self._attr_native_max_value = (
-            TEMP_MAX_HOT_WATER_OVERRIDE if zone_type == "HOT_WATER" else TEMP_MAX_AC
-        )
-
-        capabilities = coordinator.data.capabilities.get(zone_id)
-        if capabilities and capabilities.temperatures:
-            self._attr_native_min_value = float(capabilities.temperatures.celsius.min)
-            self._attr_native_max_value = float(capabilities.temperatures.celsius.max)
-            self._attr_native_step = float(capabilities.temperatures.celsius.step)
-
-        self._attr_unique_id = f"zone_{zone_id}_target_temp"
+        TadoGenericNumberMixin.__init__(self, definition)
+        self._attr_unique_id = f"zone_{zone_id}_{self._get_unique_id_suffix()}"
+        self._update_dynamic_ranges()
 
     async def async_added_to_hass(self) -> None:
-        """Fetch capabilities on startup if not cached."""
-        await super().async_added_to_hass()
-        if capabilities := await self.coordinator.async_get_capabilities(self._zone_id):
-            if capabilities.temperatures:
-                self._attr_native_min_value = float(
-                    capabilities.temperatures.celsius.min
-                )
-                self._attr_native_max_value = float(
-                    capabilities.temperatures.celsius.max
-                )
-                self._attr_native_step = float(capabilities.temperatures.celsius.step)
-                self.async_write_ha_state()
+        """Handle startup logic (restore + dynamic ranges)."""
+        await TadoOptimisticNumber.async_added_to_hass(self)
 
-    def _get_actual_value(self) -> float | None:
-        state = self.coordinator.data.zone_states.get(str(self._zone_id))
-        if state and state.setting and state.setting.temperature:
-            return float(state.setting.temperature.celsius)
-        return None
-
-    async def async_set_native_value(self, value: float) -> None:
-        """Set a new target temperature."""
-        if self._zone_type == "HOT_WATER":
-            # Use optimistic_value=True (Manual Overlay active) -> Schedule Switch shows OFF
-            await self.coordinator.async_set_zone_overlay(
-                self._zone_id,
-                power="ON",
-                temperature=value,
-                overlay_type="HOT_WATER",
-                optimistic_value=True,
-            )
-        else:
-            await self.coordinator.async_set_ac_setting(
-                self._zone_id, "temperature", str(value)
-            )
+        # Re-fetch ranges on startup if they might be dynamic
+        if self._definition.get("min_fn") or self._definition.get("max_fn"):
+            # Ensure capabilities are loaded for dynamic ranges (e.g. target_temp)
+            await self.coordinator.async_get_capabilities(self._zone_id)
+            self._update_dynamic_ranges()
+            self.async_write_ha_state()

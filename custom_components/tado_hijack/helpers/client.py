@@ -22,11 +22,13 @@ class TadoHijackClient(Tado):
         self,
         *args: Any,
         proxy_url: str | None = None,
+        proxy_token: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize the client with optional proxy URL."""
+        """Initialize the client with optional proxy URL and token."""
         super().__init__(*args, **kwargs)
         self.proxy_url = proxy_url
+        self.proxy_token = proxy_token
 
     async def _request(
         self,
@@ -37,7 +39,7 @@ class TadoHijackClient(Tado):
     ) -> str:
         """Override _request to use our robust TadoRequestHandler."""
         return await get_handler().robust_request(
-            self, uri, endpoint, data, method, self.proxy_url
+            self, uri, endpoint, data, method, self.proxy_url, self.proxy_token
         )
 
     async def reset_all_zones_overlay(self, zones: list[int]) -> None:
@@ -115,7 +117,7 @@ class TadoHijackClient(Tado):
     async def set_dazzle_mode(self, zone_id: int, enabled: bool) -> None:
         """Set dazzle mode for a zone."""
         await self._request(
-            f"homes/{self._home_id}/zones/{zone_id}/dazzleMode",
+            f"homes/{self._home_id}/zones/{zone_id}/dazzle",
             data={"enabled": enabled},
             method=HttpMethod.PUT,
         )
@@ -128,11 +130,17 @@ class TadoHijackClient(Tado):
             method=HttpMethod.PUT,
         )
 
-    async def set_open_window_detection(self, zone_id: int, enabled: bool) -> None:
+    async def set_open_window_detection(
+        self, zone_id: int, enabled: bool, timeout_seconds: int | None = None
+    ) -> None:
         """Set open window detection configuration for a zone."""
+        data: dict[str, Any] = {"enabled": enabled}
+        if enabled and timeout_seconds is not None:
+            data["timeoutInSeconds"] = timeout_seconds
+
         await self._request(
             f"homes/{self._home_id}/zones/{zone_id}/openWindowDetection",
-            data={"enabled": enabled},
+            data=data,
             method=HttpMethod.PUT,
         )
 

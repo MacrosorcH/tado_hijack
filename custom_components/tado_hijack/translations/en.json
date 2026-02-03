@@ -15,6 +15,36 @@
           "rate_limited": "Rate Limited"
         }
       },
+      "proxy_url": {
+        "name": "API Proxy URL"
+      },
+      "proxy_token": {
+        "name": "API Proxy Token"
+      },
+      "current_zone_interval": {
+        "name": "Current Zone Polling Interval"
+      },
+      "min_interval_configured": {
+        "name": "Minimum Interval (Configured)"
+      },
+      "min_interval_enforced": {
+        "name": "Minimum Interval (Enforced)"
+      },
+      "reduced_polling_interval": {
+        "name": "Reduced Polling Interval"
+      },
+      "debounce_time": {
+        "name": "Debounce Time"
+      },
+      "presence_poll_interval": {
+        "name": "Presence Poll Interval"
+      },
+      "slow_poll_interval": {
+        "name": "Slow Poll Interval"
+      },
+      "offset_poll_interval": {
+        "name": "Offset Poll Interval"
+      },
       "heating_power": {
         "name": "Heating Power"
       },
@@ -23,6 +53,36 @@
       },
       "humidity": {
         "name": "Humidity"
+      },
+      "next_schedule_change": {
+        "name": "Next Schedule Change"
+      },
+      "next_schedule_temp": {
+        "name": "Next Schedule Temperature"
+      },
+      "next_schedule_mode": {
+        "name": "Next Schedule Mode"
+      },
+      "next_time_block_start": {
+        "name": "Next Time Block Start"
+      },
+      "auto_quota_percent": {
+        "name": "Auto API Quota Percent"
+      },
+      "throttle_threshold": {
+        "name": "Throttle Threshold"
+      },
+      "jitter_percent": {
+        "name": "Jitter Percent"
+      },
+      "reduced_polling_start": {
+        "name": "Reduced Polling Start"
+      },
+      "reduced_polling_end": {
+        "name": "Reduced Polling End"
+      },
+      "log_level": {
+        "name": "Log Level"
       }
     },
     "binary_sensor": {
@@ -46,6 +106,18 @@
       },
       "connectivity": {
         "name": "Connectivity"
+      },
+      "reduced_polling_active": {
+        "name": "Reduced Polling Active"
+      },
+      "call_jitter_enabled": {
+        "name": "Call Jitter Enabled"
+      },
+      "disable_polling_when_throttled": {
+        "name": "Disable Polling When Throttled"
+      },
+      "refresh_after_resume": {
+        "name": "Refresh After Resume"
       }
     },
     "switch": {
@@ -72,9 +144,6 @@
       },
       "early_start": {
         "name": "Early Start"
-      },
-      "open_window": {
-        "name": "Open Window Detection"
       }
     },
     "button": {
@@ -112,6 +181,9 @@
       },
       "away_temperature": {
         "name": "Away Temperature"
+      },
+      "open_window_timeout": {
+        "name": "Open Window Timeout"
       },
       "target_temperature": {
         "name": "Target Temperature"
@@ -237,17 +309,21 @@
         "description": "Advanced settings and [tado-api-proxy Repository]({proxy_repo_url}).\n[Documentation: API Proxy Bypass]({docs_url})",
         "data": {
           "api_proxy_url": "API Proxy URL (Optional)",
+          "proxy_token": "API Proxy Token (Optional)",
           "debounce_time": "Debounce Time (Seconds)",
+          "min_auto_quota_interval_s": "Minimum Auto Quota Interval",
           "call_jitter_enabled": "Enable Call Jitter (Proxy)",
           "jitter_percent": "Jitter Strength (+/- %)",
-          "debug_logging": "Enable Debug Logging"
+          "log_level": "Log Level"
         },
         "data_description": {
           "api_proxy_url": "Advanced: Base URL of a local tado-api-proxy instance. Do NOT include /api/v2. See README for details.",
+          "proxy_token": "Optional: Authentication token for the proxy. Will be automatically injected into the URL path (base_url/token/api/v2).",
           "debounce_time": "Time window to collect rapid changes before sending to API. Default 5s.",
+          "min_auto_quota_interval_s": "Minimum polling interval in seconds (20-43200 = 12h max). Standard API: 20s minimum. Proxy: 120s minimum enforced. Lower = faster updates but higher API usage. Default 20s.",
           "call_jitter_enabled": "Adds random delays before API calls to obfuscate automation patterns. Only effective when using a proxy.",
           "jitter_percent": "Strength of random variation for polls and calls. Default 10% (e.g. 60s -> 54-66s).",
-          "debug_logging": "Enable verbose debug logging for troubleshooting. WARNING: This will generate large log files."
+          "log_level": "Controls the verbosity of the logs. DEBUG shows all API interactions (masked), INFO shows important system events."
         }
       }
     },
@@ -313,17 +389,21 @@
         "description": "Advanced settings and [tado-api-proxy Repository]({proxy_repo_url}).\n[Documentation: API Proxy Bypass]({docs_url})",
         "data": {
           "api_proxy_url": "API Proxy URL (Optional)",
+          "proxy_token": "API Proxy Token (Optional)",
           "debounce_time": "Debounce Time (Seconds)",
+          "min_auto_quota_interval_s": "Minimum Auto Quota Interval",
           "call_jitter_enabled": "Enable Call Jitter (Proxy)",
           "jitter_percent": "Jitter Strength (+/- %)",
-          "debug_logging": "Enable Debug Logging"
+          "log_level": "Log Level"
         },
         "data_description": {
           "api_proxy_url": "Advanced: Base URL of a local tado-api-proxy instance. Do NOT include /api/v2. See README for details.",
+          "proxy_token": "Optional: Authentication token for the proxy. Will be automatically injected into the URL path (base_url/token/api/v2).",
           "debounce_time": "Time window to collect rapid changes before sending to API. Default 5s.",
+          "min_auto_quota_interval_s": "Minimum polling interval in seconds (20-43200 = 12h max). Standard API: 20s minimum. Proxy: 120s minimum enforced. Lower = faster updates but higher API usage. Default 20s.",
           "call_jitter_enabled": "Adds random delays before API calls to obfuscate automation patterns. Only effective when using a proxy.",
           "jitter_percent": "Strength of random variation for polls and calls. Default 10% (e.g. 60s -> 54-66s).",
-          "debug_logging": "Enable verbose debug logging for troubleshooting. WARNING: This will generate large log files."
+          "log_level": "Controls the verbosity of the logs. DEBUG shows all API interactions (masked), INFO shows important system events."
         }
       }
     }

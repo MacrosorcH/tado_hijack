@@ -28,6 +28,7 @@ from .const import (
     CONF_DISABLE_POLLING_WHEN_THROTTLED,
     CONF_ENABLE_DUMMY_ZONES,  # [DUMMY_HOOK]
     CONF_JITTER_PERCENT,
+    CONF_MIN_AUTO_QUOTA_INTERVAL_S,
     CONF_OFFSET_POLL_INTERVAL,
     CONF_PRESENCE_POLL_INTERVAL,
     CONF_REDUCED_POLLING_ACTIVE,
@@ -40,6 +41,7 @@ from .const import (
     DEFAULT_AUTO_API_QUOTA_PERCENT,
     DEFAULT_DEBOUNCE_TIME,
     DEFAULT_JITTER_PERCENT,
+    DEFAULT_MIN_AUTO_QUOTA_INTERVAL_S,
     DEFAULT_OFFSET_POLL_INTERVAL,
     DEFAULT_REDUCED_POLLING_END,
     DEFAULT_REDUCED_POLLING_INTERVAL,
@@ -74,8 +76,7 @@ from .helpers.entity_resolver import EntityResolver
 from .helpers.event_handlers import TadoEventHandler
 from .helpers.logging_utils import get_redacted_logger
 from .helpers.optimistic_manager import OptimisticManager
-from .helpers.overlay_builder import build_overlay_data, get_capped_temperature
-from .helpers.overlay_validator import validate_overlay_payload
+from .helpers.overlay_builder import build_overlay_data
 from .helpers.patch import get_handler
 from .helpers.property_manager import PropertyManager
 from .helpers.quota_math import (
@@ -329,7 +330,7 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
                         test_dt += timedelta(minutes=15)
                     diff = int((test_dt - now).total_seconds())
                     _LOGGER.debug("In 0-polling window. Sleeping for %ds.", diff)
-                    return max(MIN_AUTO_QUOTA_INTERVAL_S, diff)
+                    return max(self._get_min_auto_quota_interval(), diff)
 
                 _LOGGER.debug(
                     "In economy window. Using interval: %ds", reduced_interval
@@ -340,11 +341,8 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
         if self._auto_api_quota_percent <= 0:
             return None
 
-        min_floor = (
-            MIN_PROXY_INTERVAL_S
-            if self.config_entry.data.get(CONF_API_PROXY_URL)
-            else MIN_AUTO_QUOTA_INTERVAL_S
-        )
+        # Get minimum interval (120s for proxy, 20s+ configurable for standard)
+        min_floor = self._get_min_auto_quota_interval()
 
         background_cost_24h, _ = self.data_manager.estimate_daily_reserved_cost()
         remaining_budget = calculate_remaining_polling_budget(
@@ -365,6 +363,14 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
 
         if not self.is_reduced_polling_logic_enabled:
             predicted_cost = self.data_manager._measure_zones_poll_cost()
+
+            # Check if we have enough budget for min_floor
+            max_possible_polls = seconds_until_reset / min_floor
+            budget_needed = max_possible_polls * predicted_cost
+
+            if budget_needed <= remaining_budget:
+                return min_floor
+
             remaining_polls = remaining_budget / predicted_cost
             if remaining_polls <= 0:
                 return SECONDS_PER_HOUR
@@ -610,27 +616,14 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
 
     async def async_set_zone_heat(self, zone_id: int, temp: float = 25.0):
         """Set zone to manual mode with temperature."""
-        zone = self.zones_meta.get(zone_id)
-        overlay_type = (
-            getattr(zone, "type", ZONE_TYPE_HEATING) if zone else ZONE_TYPE_HEATING
+        # Use centralized overlay builder (includes validation)
+        data = build_overlay_data(
+            zone_id,
+            self.zones_meta,
+            power="ON",
+            temperature=temp,
+            supports_temp=self.supports_temperature(zone_id),
         )
-
-        data = {
-            "setting": {
-                "type": overlay_type,
-                "power": "ON",
-                "temperature": {"celsius": temp},
-            },
-            "termination": {"typeSkillBasedApp": "MANUAL"},
-        }
-
-        # Validate payload before queuing
-        is_valid, error = validate_overlay_payload(
-            data, overlay_type, self.supports_temperature(zone_id)
-        )
-        if not is_valid:
-            _LOGGER.error("Zone heat validation failed for zone %d: %s", zone_id, error)
-            raise ValueError(f"Invalid zone heat payload: {error}")
 
         old_state = patch_zone_overlay(self.data.zone_states.get(str(zone_id)), data)
 
@@ -674,20 +667,14 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
 
     async def async_set_hot_water_off(self, zone_id: int, refresh_after: bool = False):
         """Set hot water zone to off (manual overlay)."""
-        data = {
-            "setting": {"type": "HOT_WATER", "power": "OFF"},
-            "termination": {"typeSkillBasedApp": "MANUAL"},
-        }
-
-        # Validate payload before queuing
-        is_valid, error = validate_overlay_payload(
-            data, "HOT_WATER", self.supports_temperature(zone_id)
+        # Use centralized overlay builder (includes validation)
+        data = build_overlay_data(
+            zone_id,
+            self.zones_meta,
+            power="OFF",
+            overlay_type="HOT_WATER",
+            supports_temp=self.supports_temperature(zone_id),
         )
-        if not is_valid:
-            _LOGGER.error(
-                "Hot water off validation failed for zone %d: %s", zone_id, error
-            )
-            raise ValueError(f"Invalid hot water off payload: {error}")
 
         old_state = patch_zone_overlay(self.data.zone_states.get(str(zone_id)), data)
 
@@ -724,30 +711,16 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
         ):
             temp = state.setting.temperature.celsius
 
-        # Hot Water with OpenTherm supports temperature, non-OpenTherm does not
-        setting: dict[str, Any] = {
-            "type": "HOT_WATER",
-            "power": "ON",
-        }
-
-        # Only include temperature if the zone supports it (OpenTherm)
-        if self.supports_temperature(zone_id):
-            setting["temperature"] = {"celsius": float(temp)}
-
-        data = {
-            "setting": setting,
-            "termination": {"typeSkillBasedApp": "MANUAL"},
-        }
-
-        # Validate payload before queuing (catch 422 errors early)
-        is_valid, error = validate_overlay_payload(
-            data, "HOT_WATER", self.supports_temperature(zone_id)
+        # Use centralized overlay builder (includes validation)
+        # Builder will only include temperature if supports_temp=True (OpenTherm)
+        data = build_overlay_data(
+            zone_id,
+            self.zones_meta,
+            power="ON",
+            temperature=temp,
+            overlay_type="HOT_WATER",
+            supports_temp=self.supports_temperature(zone_id),
         )
-        if not is_valid:
-            _LOGGER.error(
-                "Hot water overlay validation failed for zone %d: %s", zone_id, error
-            )
-            raise ValueError(f"Invalid hot water overlay: {error}")
 
         old_state = patch_zone_overlay(self.data.zone_states.get(str(zone_id)), data)
 
@@ -823,6 +796,24 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
         ).time()
 
         return start <= t <= end if start <= end else t >= start or t <= end
+
+    def _get_min_auto_quota_interval(self) -> int:
+        """Get minimum auto quota interval with mode-specific floor enforcement.
+
+        One field, two minimums:
+        - Proxy mode: Minimum 120s (enforced even if user sets lower)
+        - Standard mode: Minimum 20s (enforced even if user sets lower)
+        """
+        configured = self.config_entry.data.get(
+            CONF_MIN_AUTO_QUOTA_INTERVAL_S, DEFAULT_MIN_AUTO_QUOTA_INTERVAL_S
+        )
+
+        if self.config_entry.data.get(CONF_API_PROXY_URL):
+            # Proxy: Enforce 120s minimum
+            return max(MIN_PROXY_INTERVAL_S, int(configured))
+
+        # Standard: Enforce 20s minimum
+        return max(MIN_AUTO_QUOTA_INTERVAL_S, int(configured))
 
     async def async_set_polling_active(self, enabled: bool) -> None:
         """Globally enable or disable periodic polling."""
@@ -992,21 +983,30 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
         )
 
     async def async_set_open_window_detection(
-        self, zone_id: int, enabled: bool
+        self, zone_id: int, enabled: bool, timeout_seconds: int | None = None
     ) -> None:
         """Set open window detection for a zone."""
         old_val = None
         if zone := self.zones_meta.get(zone_id):
             if zone.open_window_detection:
-                old_val = zone.open_window_detection.enabled
+                old_val = (
+                    zone.open_window_detection.enabled,
+                    zone.open_window_detection.timeout_in_seconds,
+                )
                 zone.open_window_detection.enabled = enabled
+                if timeout_seconds is not None:
+                    zone.open_window_detection.timeout_in_seconds = timeout_seconds
+
+        data = {"zone_id": zone_id, "enabled": enabled}
+        if enabled and timeout_seconds is not None:
+            data["timeout_seconds"] = timeout_seconds
 
         await self.property_manager.async_set_zone_property(
             zone_id,
             CommandType.SET_OPEN_WINDOW,
-            {"zone_id": zone_id, "enabled": enabled},
+            data,
             self.optimistic.set_open_window,
-            enabled,
+            timeout_seconds if enabled else 0,
             rollback_context=old_val,
         )
 
@@ -1043,10 +1043,8 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
         # Force power ON when changing settings, as they only apply to active states
         current_power = POWER_ON
 
-        setting = {
-            "type": state.setting.type,
-            "power": current_power,
-            "mode": current_mode,
+        # Build additional AC-specific fields from current state
+        additional_fields = {
             "fanSpeed": getattr(state.setting, "fan_speed", None),
             "fanLevel": getattr(state.setting, "fan_level", None),
             "verticalSwing": getattr(state.setting, "vertical_swing", None),
@@ -1054,12 +1052,14 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
             "swing": getattr(state.setting, "swing", None),
         }
 
+        # Determine temperature (builder will cap it automatically)
+        temperature = None
         if key == "temperature":
-            capped_temp = get_capped_temperature(zone_id, float(value), self.zones_meta)
-            setting["temperature"] = {"celsius": capped_temp}
+            temperature = float(value)
         elif hasattr(state.setting, "temperature") and state.setting.temperature:
-            setting["temperature"] = {"celsius": state.setting.temperature.celsius}
+            temperature = state.setting.temperature.celsius
 
+        # Update the specific field being changed
         if key != "temperature":
             api_key_map = {
                 "fan_speed": "fanSpeed",
@@ -1069,30 +1069,28 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
             }
 
             api_key = api_key_map.get(key, key)
-            setting[api_key] = value
+            additional_fields[api_key] = value
             if key == "fan_speed":
-                setting["fanLevel"] = value
+                additional_fields["fanLevel"] = value
             elif key == "vertical_swing":
-                setting["swing"] = value
+                additional_fields["swing"] = value
 
-        data = {
-            "setting": {k: v for k, v in setting.items() if v is not None},
-            "termination": {"typeSkillBasedApp": "MANUAL"},
+        # Filter out None values
+        additional_fields = {
+            k: v for k, v in additional_fields.items() if v is not None
         }
 
-        # Validate payload before queuing
-        is_valid, error = validate_overlay_payload(
-            data, state.setting.type, self.supports_temperature(zone_id)
+        # Use centralized overlay builder (includes validation)
+        data = build_overlay_data(
+            zone_id,
+            self.zones_meta,
+            power=current_power,
+            temperature=temperature,
+            ac_mode=current_mode,
+            overlay_type=state.setting.type,
+            supports_temp=self.supports_temperature(zone_id),
+            additional_setting_fields=additional_fields,
         )
-        if not is_valid:
-            _LOGGER.error(
-                "AC setting validation failed for zone %d (%s): %s | Payload: %s",
-                zone_id,
-                key,
-                error,
-                data,
-            )
-            raise ValueError(f"Invalid AC setting payload: {error}")
 
         old_state = patch_zone_overlay(self.data.zone_states.get(str(zone_id)), data)
 
