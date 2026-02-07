@@ -13,6 +13,7 @@ from homeassistant.core import (
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 from tadoasync import Tado, TadoError
+from tadoasync.models import TemperatureOffset
 
 if TYPE_CHECKING:
     from tadoasync.models import Device, Zone
@@ -918,6 +919,12 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[TadoData]):
     async def async_set_temperature_offset(self, serial_no: str, offset: float) -> None:
         """Set temperature offset for a device."""
         old_val = self.data_manager.offsets_cache.get(serial_no)
+
+        self.data_manager.offsets_cache[serial_no] = TemperatureOffset(
+            celsius=offset,
+            fahrenheit=0.0,
+        )
+
         if old_val:
             import copy
 
