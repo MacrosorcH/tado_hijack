@@ -16,6 +16,10 @@
 
 <br>
 
+<a href="https://buymeacoffee.com/banter240" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;width: 181px !important;" ></a>
+
+<br>
+
 **The only Tado integration that survives when they cut your API to 100 calls/day.**
 
 <br>
@@ -70,6 +74,18 @@ While other integrations **die** when Tado slashes API limits, Tado Hijack **jus
 
 <br>
 
+<div align="center">
+
+**[🆚 Comparison](#feature-comparison)** • **[🚀 Highlights](#key-highlights)** • **[📊 API Strategy](#api-consumption-strategy)** • **[🛠️ Architecture](#architecture)**<br>**[📦 Installation](#installation)** • **[⚙️ Configuration](#configuration)** • **[📱 Entities](#entities--controls)** • **[⚡ Services](#services)**<br>**[📋 Constraints](#known-constraints)** • **[🐛 Troubleshooting](#troubleshooting)** • **[📚 Docs](#documentation)** • **[☕ Support](#support-the-project)**
+
+</div>
+
+<br>
+
+---
+
+<br>
+
 ## 🔥 **Why Tado Hijack?**
 
 <br>
@@ -91,41 +107,6 @@ Tado is forcing you into a subscription by choking the "free" API from **5,000 �
 <br>
 
 **Bottom Line:** Other integrations require constant manual adjustments, feature sacrifices, or just break entirely. **Tado Hijack is engineered to outlast Tado's hostility.**
-
-<br>
-
----
-
-<br>
-
-## 📖 Table of Contents
-
-<br>
-
-- [🆚 Feature Comparison](#feature-comparison)
-- [🚀 Key Highlights](#key-highlights)
-  - [🧠 Extreme Batching Technology](#extreme-batching-technology)
-  - [🤝 The HomeKit "Missing Link"](#the-homekit-missing-link)
-  - [🛠️ Unleashed Features](#unleashed-features-non-homekit)
-  - [🛡️ State Integrity & Robustness](#state-integrity--robustness)
-- [📊 API Consumption Strategy](#api-consumption-strategy)
-  - [📊 API Consumption Table](#api-consumption-table)
-  - [📈 Auto API Quota & Economy Window](#auto-api-quota--economy-window)
-  - [🧠 Batching Capability Matrix](#batching-capability-matrix)
-- [🛠️ Architecture](#architecture)
-  - [🔧 Physical Device Mapping](#physical-device-mapping--resolution)
-  - [🛡️ Robustness & Security](#robustness--security)
-- [📦 Installation](#installation)
-- [⚙️ Configuration](#configuration)
-- [📱 Entities & Controls](#entities--controls)
-  - [🏠 Home Device (Internet Bridge)](#home-device-internet-bridge)
-  - [🌡️ Zone Devices (Rooms / Hot Water / AC)](#zone-devices-rooms--hot-water--ac)
-  - [🔧 Physical Devices (Valves/Thermostats)](#physical-devices-valvesthermostats)
-- [⚡ Services](#services)
-  - [📝 set_mode Examples (YAML)](#set_mode-examples-yaml)
-- [📋 Known Constraints](#known-constraints)
-- [🐛 Troubleshooting](#troubleshooting)
-- [📚 Documentation](#documentation)
 
 <br>
 
@@ -844,6 +825,22 @@ Looking for more technical details or want to contribute?
 - Code structure and key concepts for contributors
 - Testing checklist and debugging tips
 - Contributing guidelines
+
+<br>
+
+---
+
+<br>
+
+## Support the Project
+
+**Tado Hijack is developed entirely in my free time** to fight back against API restrictions and keep our smart homes running freely. 
+
+If this integration saved you from buying a Tado subscription, fixed your API headaches, or you just love the advanced features, please consider supporting the ongoing development!
+
+<a href="https://buymeacoffee.com/banter240" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;width: 181px !important;" ></a>
+
+Every coffee helps to keep the motivation high, fund test hardware for new features, and fuels the late-night coding sessions required to outsmart the API limits. **Thank you! ❤️**
 
 <br>
 
