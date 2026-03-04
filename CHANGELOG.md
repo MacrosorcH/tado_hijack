@@ -1,3 +1,140 @@
+## [5.0.0](https://github.com/banter240/tado_hijack/compare/v4.3.0...v5.0.0) (2026-03-04)
+
+### ⚠ BREAKING CHANGES
+
+* **core:** Multiple breaking changes for migration:
+- Entity unique_ids now include config entry_id AND zone_id prefix for multi-account support (format: {entry_id}_zone_{zone_id}_{suffix}). Entities will be recreated on upgrade. Recommended: Delete and re-add the integration to avoid duplicates.
+- Minimum Home Assistant version is now 2024.11.0 for Matter support.
+
+This release introduces complete Tado X support with Matter integration, V2 bridge compatibility, optional full cloud mode for all generations, enhanced multi-account support, and a modular generation-based architecture.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌟 TADO X GENERATION SUPPORT (IB02 BRIDGE X)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Complete Tado X Integration:
+- Full support for Tado X hardware via hops.tado.com API
+- Custom TadoXApi client (lib/tadox_api.py) with OAuth token reuse from tadoasync
+- Pydantic models for type safety: TadoXZoneState, TadoXDevice, TadoXRoom
+- Matter device integration and automatic room-to-entity mapping
+- Generation-aware entity filtering and capabilities detection
+- Duck-typed compatibility with V3 models via UnifiedTadoData container
+- Quick Actions (boost/off/resume) work with both Classic and Tado X
+
+Generation-Specific Handlers:
+- helpers/tadox/: Complete Tado X handler module (mapper, executor, action_provider, parsers, discovery)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏗️ V2 BRIDGE SUPPORT & UNIFIED CLASSIC API
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+V2 Hardware Support:
+- Added support for V2 Gateway bridges (GW) with ~20k API calls/day quota
+- V2 and V3 consolidated into single GEN_CLASSIC constant (both use my.tado.com API)
+- Only difference: V2 has no HomeKit, V3 has HomeKit support
+- Backward compatibility migration for users upgrading from previous versions
+
+Modular Architecture:
+- helpers/tadov3/: Classic API handlers for V2 and V3 (mapper, executor, action_provider, parsers)
+- Provider pattern: Generation-agnostic data fetching interface (UnifiedDataProvider)
+- Executor pattern: Generation-specific command execution (executor_base.py, executor_unified.py)
+- Clean separation: lib/ for API clients, helpers/tadov3|tadox/ for business logic
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+☁️ FULL CLOUD MODE (ALL GENERATIONS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Optional Cloud-Polling Climate Entities:
+- New Full Cloud Mode toggle in config flow (default: false)
+- Creates climate entities via cloud polling instead of HomeKit/Matter
+- Supported for ALL generations (V2/V3/X) with generation-aware entity creation
+- New TadoHeating class for heating zones (classic heating control)
+- V2/V3: Separate TadoHeating and TadoAirConditioning entities per zone type
+- Tado X: Unified TadoAirConditioning entity per room (supports all HVAC modes)
+
+Recommendations:
+- ✅ V2 (GW): ONLY option for climate entities (~20k calls/day makes it viable)
+- ⚠️ V3 (IB01/GW01): NOT recommended (1k calls/day reducing to 100, use HomeKit instead)
+- ⚠️ Tado X (IB02): NOT recommended (1k calls/day reducing to 100, use Matter instead)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👥 ENHANCED MULTI-ACCOUNT SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Improved Entity Namespacing:
+- Extended entity unique_id format to include zone_id: {entry_id}_zone_{zone_id}_{suffix}
+- Previous format: {entry_id}_{suffix} (insufficient for multi-account with identical zone IDs)
+- Prevents collisions when multiple accounts have zones with same ID
+- Device identifiers now include zone context for proper grouping
+- Enables multiple Tado homes in single Home Assistant instance without conflicts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ CONFIG FLOW: GENERATION SELECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+New Setup Options:
+- Generation selection: Classic (V2/V3) or Tado X (required during initial setup)
+- Full Cloud Mode toggle for all generations (optional, default: false)
+- fetch_extended_data toggle for initial poll optimization (optional, default: true)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛠️ DEVICE ENTITY RESOLUTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Enhanced Service Target Support:
+- Services now accept device entities (battery, child_lock, connection, etc.) as entity_id
+- Automatic zone lookup via device serial number extraction from unique_id
+- Previous: Only zone entities (climate, switch, sensor) worked as entity_id
+- Now: ANY Tado entity (including TRV/device entities) can be used as target
+- Example: set_mode with entity_id=binary_sensor.trv_battery now automatically resolves to zone
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔇 REDUNDANCY SUPPRESSION SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+API Quota Optimization:
+- New redundancy checker (helpers/redundancy_checker.py)
+- CONF_SUPPRESS_REDUNDANT_CALLS: Skip API calls when target state matches cached state
+- CONF_SUPPRESS_REDUNDANT_BUTTONS: Also skip button actions when all zones already match target
+- Saves quota on accidental double-clicks, repeated UI interactions, or automation retries
+- Only sends API calls when actual change detected
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ AUTO QUOTA: MINIMUM INTERVAL CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Configurable Minimum Polling Interval:
+- MIN_AUTO_QUOTA_INTERVAL_S reduced from 20 to 5 seconds (absolute floor)
+- DEFAULT_MIN_AUTO_QUOTA_INTERVAL_S remains at 20 seconds (recommended default)
+- Users can now set more aggressive polling if needed (e.g., for testing or high-quota V2 bridges)
+- Default remains safe at 20s to protect against accidental account throttling
+- Range: 5s-12h (configurable in Advanced Settings)
+- Proxy mode still enforces 120s minimum
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 COMPREHENSIVE DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+New Documentation:
+- docs/ARCHITECTURE.md: Multi-generation system design with mermaid diagrams
+- docs/FEATURES.md: Complete feature guide with generation comparison matrix
+
+README Fixes:
+- Corrected Full Cloud Mode documentation (supports all generations, not V2/V3 only)
+- Fixed API quota history: 20k → 5k → 1k (with 100 planned next)
+- Clarified Device Unification only works with HomeKit/V3 (Matter lacks serial numbers)
+- Added generation comparison table (V2/V3/X feature matrix)
+- Removed redundant explanations and consolidated quota mentions
+
+### ✨ New Features
+
+* feat(core): Tado X support, V2/V3 generation, full cloud mode, multi-account, and comprehensive overhaul
+
+
+### 📚 Documentation
+
+* docs(readme): reformat table of contents and add support section
+
 ## [4.3.0](https://github.com/banter240/tado_hijack/compare/v4.2.3...v4.3.0) (2026-02-23)
 
 ### ✨ New Features
