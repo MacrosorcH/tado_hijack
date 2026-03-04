@@ -167,6 +167,8 @@ class TadoHijackCommonFlow:
                 CONF_REFRESH_AFTER_RESUME,
                 CONF_SUPPRESS_REDUNDANT_CALLS,
                 CONF_SUPPRESS_REDUNDANT_BUTTONS,
+                CONF_MIN_AUTO_QUOTA_INTERVAL_S,
+                CONF_QUOTA_SAFETY_RESERVE,
             ]:
                 if key in quota:
                     processed_input[key] = quota[key]
@@ -190,8 +192,6 @@ class TadoHijackCommonFlow:
                 CONF_CALL_JITTER_ENABLED,
                 CONF_JITTER_PERCENT,
                 CONF_DEBOUNCE_TIME,
-                CONF_MIN_AUTO_QUOTA_INTERVAL_S,
-                CONF_QUOTA_SAFETY_RESERVE,
                 CONF_LOG_LEVEL,
             ]:
                 if key in advanced:

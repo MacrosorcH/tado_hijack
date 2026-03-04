@@ -525,8 +525,10 @@ class TadoDataUpdateCoordinator(DataUpdateCoordinator[Any]):
 
         min_floor = self._get_min_auto_quota_interval()
         background_cost_24h, _ = self.data_manager.estimate_daily_reserved_cost()
-        safety_reserve = self.config_entry.data.get(
-            CONF_QUOTA_SAFETY_RESERVE, DEFAULT_QUOTA_SAFETY_RESERVE
+        safety_reserve = int(
+            self.config_entry.data.get(
+                CONF_QUOTA_SAFETY_RESERVE, DEFAULT_QUOTA_SAFETY_RESERVE
+            )
         )
         remaining_budget = calculate_remaining_polling_budget(
             limit=self.rate_limit.limit,

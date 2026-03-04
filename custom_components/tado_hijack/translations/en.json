@@ -368,7 +368,6 @@
               "call_jitter_enabled": "Enable Call Jitter (Proxy)",
               "jitter_percent": "Jitter Strength (+/- %)",
               "debounce_time": "Debounce Time (Seconds)",
-              "min_auto_quota_interval_s": "Minimum Auto Quota Interval",
               "log_level": "Log Level"
             },
             "data_description": {
@@ -459,7 +458,6 @@
               "call_jitter_enabled": "Enable Call Jitter (Proxy)",
               "jitter_percent": "Jitter Strength (+/- %)",
               "debounce_time": "Debounce Time (Seconds)",
-              "min_auto_quota_interval_s": "Minimum Auto Quota Interval",
               "log_level": "Log Level"
             },
             "data_description": {
